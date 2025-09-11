@@ -8,7 +8,7 @@ def d2fromcenter(shape, resolution=1):
     distance from the center index, if the number of grid cells per unit is given
     by the resolution.
     """
-    grid = np.ogrid[*(slice(0, s) for s in shape), ]
+    grid = np.ogrid[*(slice(0, s) for s in shape),]
     return sum(((g - s / 2 + 0.5) / resolution) ** 2 for g, s in zip(grid, shape))
 
 
@@ -24,7 +24,7 @@ def convolve(x, y):
 
 def cone_filter(radius, resolution, dimension) -> np.ndarray:
     """
-    Convolutional filter for cone kernel, scaled to unit sum.
+    Convolutional filter for cone kernel, scaled to unit norm.
 
     :param radius: Radius of cone.
     :param resolution: Number of grid cells per unit.
@@ -35,12 +35,12 @@ def cone_filter(radius, resolution, dimension) -> np.ndarray:
     shape = tuple(w for _ in range(dimension))
     d2 = d2fromcenter(shape, resolution)
     filt = (d2 < radius * radius)
-    return filt / filt.sum()
+    return filt / np.linalg.norm(filt)
 
 
 def rbf_filter(sigma, nsig, resolution, dimension) -> np.ndarray:
     """
-    Convolutional filter for RBF kernel, scaled to unit sum.
+    Convolutional filter for RBF kernel, scaled to unit norm.
 
     :param sigma: Sigma paremeter of radial basis function. (Not squared.)
     :param nsig: Half-width of filter in units of sigma.
@@ -52,7 +52,7 @@ def rbf_filter(sigma, nsig, resolution, dimension) -> np.ndarray:
     shape = tuple(w for _ in range(dimension))
     d2 = d2fromcenter(shape, resolution)
     filt = np.exp(-d2 / (sigma * sigma))  # convolution of Gaussian is Gaussian
-    return filt / filt.sum()
+    return filt / np.linalg.norm(filt)
 
 
 def noise(
@@ -61,6 +61,7 @@ def noise(
         cone_rad: float = None,
         rbf_sigma: float = None,
         rbf_nsig: float = 2.5,
+        channel_cov = 1.,
         periodic: bool | tuple = False,
         seed: int = None
 ) -> np.ndarray:
@@ -74,6 +75,8 @@ def noise(
                     sigma parameter (not squared) is the provided value.
     :param rbf_nsig: If RBF kernel is used, the small correlations over distances beyond rbf_nsig * rbf_s2**0.5
                         may be neglected.
+    :param channel_cov: Covariance matrix of channels in the noise. Must be symmetric positive
+                            definite. A positive scalar works for one channel.
     :param periodic: Whether to wrap noise around each axis, e.g. False for non-repeating noise, (True, False) for
                         2d-noise which is periodic along the first axis.
     :param seed: Random seed for replicability.
@@ -94,6 +97,10 @@ def noise(
     else:
         raise ValueError("No cone_rad or rbf_sigma specified.")
 
+    # TODO: channels
+    if channel_cov != 1.:
+        raise NotImplementedError
+
     # determine shape of white noise to sample
     pad_shape = shape.copy()
     pad_shape[np.equal(periodic, False)] += kernel.shape[0] - 1
@@ -101,18 +108,39 @@ def noise(
     # create noise map
     white = np.random.randn(*pad_shape)
     smooth = convolve(white, kernel)
-    return smooth[*(slice(0, sj) for sj in shape),]
+    result = smooth[*(slice(0, sj) for sj in shape), ]
+
+    # rescale noise to unit variance
+    # result /= (kernel ** 2).sum()
+    return result
 
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    n = noise(
-        shape=(480, 640),
-        resolution=1,
-        cone_rad=50
-        #rbf_sigma=50
-    )
+    kwargs = {
+        'shape': (640, 820),
+        'resolution': 1,
+        'rbf_sigma': 60,
+        'periodic': True
+    }
 
-    plt.imshow(n)
+    r = noise(**kwargs)
+    g = noise(**kwargs)
+    b = noise(**kwargs)
+
+    rgb = np.stack((r, g, b), axis=2)
+
+    # correlate channels by multiplying by cholesky factor of cov
+    factor = np.array([
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1]
+    ])
+    rgb = rgb @ factor
+
+    rgb = np.tanh(rgb)      # todo: maybe use gaussian cdf?
+
+    plt.imshow(rgb)
+    # plt.plot(n)
     plt.show()
