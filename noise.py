@@ -132,12 +132,14 @@ if __name__ == "__main__":
     rgb = np.stack((r, g, b), axis=2)
 
     # correlate channels by multiplying by cholesky factor of cov
-    factor = np.array([
-        [1, 0, 0],
-        [0, 1, 0],
-        [0, 0, 1]
+    crg, crb, cgb = 0.99, 0., 0.0
+    cov = np.array([
+        [1, crg, crb],
+        [crg, 1, cgb],
+        [crb, cgb, 1]
     ])
-    rgb = rgb @ factor
+    L = np.linalg.cholesky(cov)
+    rgb = rgb @ L
 
     rgb = np.tanh(rgb)      # todo: maybe use gaussian cdf?
 
