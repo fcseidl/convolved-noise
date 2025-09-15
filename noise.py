@@ -97,51 +97,42 @@ def noise(
     else:
         raise ValueError("No cone_rad or rbf_sigma specified.")
 
-    # TODO: channels
-    if channel_cov != 1.:
-        raise NotImplementedError
-
     # determine shape of white noise to sample
     pad_shape = shape.copy()
     pad_shape[np.equal(periodic, False)] += kernel.shape[0] - 1
 
-    # create noise map
-    white = np.random.randn(*pad_shape)
-    smooth = convolve(white, kernel)
-    result = smooth[*(slice(0, sj) for sj in shape), ]
+    channel_cov = np.atleast_2d(channel_cov)
+    n_channels = channel_cov.shape[0]
+    cholesky_factor = np.linalg.cholesky(channel_cov)
 
-    # rescale noise to unit variance
-    # result /= (kernel ** 2).sum()
-    return result
+    result = np.empty(tuple(pad_shape) + (n_channels, ))
+
+    for c in range(n_channels):
+        # create noise map
+        white = np.random.randn(*pad_shape)
+        smooth = convolve(white, kernel)
+        result[..., c] = smooth[*(slice(0, sj) for sj in shape), ]
+
+    return result @ cholesky_factor.T
 
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    kwargs = {
-        'shape': (640, 820),
-        'resolution': 1,
-        'rbf_sigma': 60,
-        'periodic': True
-    }
+    crg, crb, cgb = 0.2, 0.2, 0.7
+    rgb = noise(
+        shape=(800, 1000),
+        resolution=1,
+        rbf_sigma=60,
+        periodic=True,
+        channel_cov=np.array([
+                        [1, crg, crb],
+                        [crg, 1, cgb],
+                        [crb, cgb, 1]
+                    ])
+    )
 
-    r = noise(**kwargs)
-    g = noise(**kwargs)
-    b = noise(**kwargs)
-
-    rgb = np.stack((r, g, b), axis=2)
-
-    # correlate channels by multiplying by cholesky factor of cov
-    crg, crb, cgb = 0.99, 0., 0.0
-    cov = np.array([
-        [1, crg, crb],
-        [crg, 1, cgb],
-        [crb, cgb, 1]
-    ])
-    L = np.linalg.cholesky(cov)
-    rgb = rgb @ L
-
-    rgb = np.tanh(rgb)      # todo: maybe use gaussian cdf?
+    rgb = 1 / (1 + np.exp(-rgb))      # todo: maybe use gaussian cdf?
 
     plt.imshow(rgb)
     # plt.plot(n)
