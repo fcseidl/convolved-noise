@@ -61,7 +61,7 @@ def noise(
         cone_rad: float = None,
         rbf_sigma: float = None,
         rbf_nsig: float = 2.5,
-        channel_cov = 1.,
+        channel_cov: float | np.ndarray = 1.,
         periodic: bool | tuple = False,
         seed: int = None
 ) -> np.ndarray:
@@ -108,7 +108,6 @@ def noise(
     result = np.empty(tuple(pad_shape) + (n_channels, ))
 
     for c in range(n_channels):
-        # create noise map
         white = np.random.randn(*pad_shape)
         smooth = convolve(white, kernel)
         result[..., c] = smooth[*(slice(0, sj) for sj in shape), ]
@@ -119,7 +118,26 @@ def noise(
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    crg, crb, cgb = 0.2, 0.2, 0.7
+    # based on SO: https://stackoverflow.com/a/457805/14149906
+    def erf(x):
+        # save the sign of x
+        sign = np.sign(x)
+        x = np.abs(x)
+
+        # constants
+        a1 = 0.254829592
+        a2 = -0.284496736
+        a3 = 1.421413741
+        a4 = -1.453152027
+        a5 = 1.061405429
+        p = 0.3275911
+
+        # A&S formula 7.1.26
+        t = 1.0 / (1.0 + p * x)
+        y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * np.exp(-x * x)
+        return sign * y  # erf(-x) = -erf(x)
+
+    crg, crb, cgb = 0.0, 0.0, 0.9
     rgb = noise(
         shape=(800, 1000),
         resolution=1,
@@ -132,7 +150,8 @@ if __name__ == "__main__":
                     ])
     )
 
-    rgb = 1 / (1 + np.exp(-rgb))      # todo: maybe use gaussian cdf?
+    #rgb = 1 / (1 + np.exp(-rgb))
+    rgb = 0.5 * (1 + erf(rgb))      # inverse cdf (approximated)
 
     plt.imshow(rgb)
     # plt.plot(n)
