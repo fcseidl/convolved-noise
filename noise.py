@@ -87,7 +87,7 @@ def noise(
     shape = (resolution * np.atleast_1d(shape)).astype(int)
     dim = len(shape)
     if type(periodic) == bool:
-        periodic == (periodic for _ in shape)
+        periodic = [periodic for _ in shape]
 
     # construct kernel to convolve with
     if cone_rad is not None:
@@ -105,7 +105,7 @@ def noise(
     n_channels = channel_cov.shape[0]
     cholesky_factor = np.linalg.cholesky(channel_cov)
 
-    result = np.empty(tuple(pad_shape) + (n_channels, ))
+    result = np.empty(tuple(shape) + (n_channels, ))
 
     for c in range(n_channels):
         white = np.random.randn(*pad_shape)
@@ -141,8 +141,8 @@ if __name__ == "__main__":
     rgb = noise(
         shape=(800, 1000),
         resolution=1,
-        rbf_sigma=60,
-        periodic=True,
+        rbf_sigma=100,
+        periodic=[False, True],
         channel_cov=np.array([
                         [1, crg, crb],
                         [crg, 1, cgb],
@@ -153,6 +153,9 @@ if __name__ == "__main__":
     #rgb = 1 / (1 + np.exp(-rgb))
     rgb = 0.5 * (1 + erf(rgb))      # inverse cdf (approximated)
 
+    #rgb = d2fromcenter((300, 300, 3), resolution=300)
+    rgb = np.roll(rgb, (100, 100), axis=(0, 1))
+
     plt.imshow(rgb)
-    # plt.plot(n)
+    plt.axis('off')
     plt.show()
