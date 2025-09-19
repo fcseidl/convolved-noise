@@ -1,15 +1,17 @@
 import numpy as np
 from numpy.fft import rfftn, irfftn
 
+from typing import Callable
 
-def d2fromcenter(shape, resolution=1):
+
+def distfromcenter(shape):
     """
-    Create an array of the requested shape where each index holds its squared
-    distance from the center index, if the number of grid cells per unit is given
-    by the resolution.
+    Create an array of the requested shape where each index holds its
+    distance from the center index.
     """
-    grid = np.ogrid[*(slice(0, s) for s in shape),]
-    return sum(((g - s / 2 + 0.5) / resolution) ** 2 for g, s in zip(grid, shape))
+    grid = np.ogrid[*(slice(0, s) for s in shape), ]
+    d2 = sum((g - s / 2 + 0.5) ** 2 for g, s in zip(grid, shape))
+    return np.sqrt(d2)
 
 
 def convolve(x, y):
@@ -57,49 +59,51 @@ def rbf_filter(sigma, nsig, resolution, dimension) -> np.ndarray:
 
 def noise(
         shape: float | tuple,
-        resolution: int,
-        cone_rad: float = None,
-        rbf_sigma: float = None,
-        rbf_nsig: float = 2.5,
+        kernel: np.ufunc,
+        eff_range: float,
         channel_cov: float | np.ndarray = 1.,
         periodic: bool | tuple = False,
         seed: int = None
 ) -> np.ndarray:
     """
-    Sample an isotropic Gaussian process over a box in n-dimensional space.
+    Sample a mean-zero Gaussian process over a box in n-dimensional space, satisfying
+        Cov(N(x), N(y)) = (k * k)(||x - y||),
+    where N is the process, k is a kernel function, and * represents the
+    (discrete) convolution operator.
 
-    :param shape: Box dimensions; shape=np.ones(d) gives a unit hypercube in d dimensions.
-    :param resolution: Number of grid points in one unit of distance.
-    :param cone_rad: If provided, correlation kernel is a cone with this radius.
-    :param rbf_sigma: Must be provided if cone_rad is not. In this case, correlation kernel is an RBF kernel whose
-                    sigma parameter (not squared) is the provided value.
-    :param rbf_nsig: If RBF kernel is used, the small correlations over distances beyond rbf_nsig * rbf_s2**0.5
-                        may be neglected.
-    :param channel_cov: Covariance matrix of channels in the noise. Must be symmetric positive
-                            definite. A positive scalar works for one channel.
-    :param periodic: Whether to wrap noise around each axis, e.g. False for non-repeating noise, (True, False) for
-                        2d-noise which is periodic along the first axis.
+    :param shape: Shape of grid in which to sample noise. The grid resolution
+                    is set so that the length along the first axis is 1. For
+                     instance, shape=np.ones(d) gives a unit hypercube in d
+                     dimensions.
+    :param kernel: Convolutional kernel used to define noise covariance. Must be broadcastable.
+    :param eff_range: Effective range of kernel. Longer-range correlations are reduced or
+                        absent in the noise simulated.
+    :param channel_cov: Covariance matrix of channels in the noise sample. Provide a
+                            positive scalar for single-channel noise. Otherwise, provide
+                            a symmetric positive definite matrix with a row for each
+                            channel. The channels appear along the last axis of the output.
+    :param periodic: Whether to wrap noise around each axis, e.g. False for
+                        non-repeating noise, (True, False) for 2d-noise which
+                        is periodic along the first axis.
     :param seed: Random seed for replicability.
-    :return: Array of shape np.multiply(resolution, shape) containing process values at sampled grid points.
+    :return: Array of shape (shape + channel_cov.shape[0]) containing a realization
+                of the Gaussian process.
     """
     if seed is not None:
         np.random.seed(seed)
-    shape = (resolution * np.atleast_1d(shape)).astype(int)
-    dim = len(shape)
+    shape = np.atleast_1d(shape).astype(int)
     if type(periodic) == bool:
         periodic = [periodic for _ in shape]
 
     # construct kernel to convolve with
-    if cone_rad is not None:
-        kernel = cone_filter(cone_rad, resolution, dim)
-    elif rbf_sigma is not None:
-        kernel = rbf_filter(rbf_sigma, rbf_nsig, resolution, dim)
-    else:
-        raise ValueError("No cone_rad or rbf_sigma specified.")
+    d = distfromcenter([2 * eff_range * shape[0] + 1 for _ in shape])
+    d /= shape[0]
+    filt = kernel(d)
+    filt[d > eff_range] = 0
 
     # determine shape of white noise to sample
     pad_shape = shape.copy()
-    pad_shape[np.equal(periodic, False)] += kernel.shape[0] - 1
+    pad_shape[np.equal(periodic, False)] += filt.shape[0] - 1
 
     channel_cov = np.atleast_2d(channel_cov)
     n_channels = channel_cov.shape[0]
@@ -109,7 +113,7 @@ def noise(
 
     for c in range(n_channels):
         white = np.random.randn(*pad_shape)
-        smooth = convolve(white, kernel)
+        smooth = convolve(white, filt)
         result[..., c] = smooth[*(slice(0, sj) for sj in shape), ]
 
     return result @ cholesky_factor.T
@@ -137,12 +141,12 @@ if __name__ == "__main__":
         y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * np.exp(-x * x)
         return sign * y  # erf(-x) = -erf(x)
 
-    crg, crb, cgb = 0.0, 0.0, 0.9
+    crg, crb, cgb = 0.9, 0.9, 0.9
     rgb = noise(
         shape=(800, 1000),
-        resolution=1,
-        rbf_sigma=100,
-        periodic=[False, True],
+        kernel=lambda x: 0.1 - x,       #np.ones_like(x),
+        eff_range=0.1,
+        periodic=False,     # [False, False],
         channel_cov=np.array([
                         [1, crg, crb],
                         [crg, 1, cgb],
@@ -150,10 +154,8 @@ if __name__ == "__main__":
                     ])
     )
 
-    #rgb = 1 / (1 + np.exp(-rgb))
     rgb = 0.5 * (1 + erf(rgb))      # inverse cdf (approximated)
 
-    #rgb = d2fromcenter((300, 300, 3), resolution=300)
     rgb = np.roll(rgb, (100, 100), axis=(0, 1))
 
     plt.imshow(rgb)
