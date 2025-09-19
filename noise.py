@@ -35,8 +35,8 @@ def cone_filter(radius, resolution, dimension) -> np.ndarray:
     hw = int(radius * resolution)
     w = 2 * hw + 1
     shape = tuple(w for _ in range(dimension))
-    d2 = d2fromcenter(shape, resolution)
-    filt = (d2 < radius * radius)
+    d = distfromcenter(shape)
+    filt = (d < radius)
     return filt / np.linalg.norm(filt)
 
 
@@ -52,7 +52,7 @@ def rbf_filter(sigma, nsig, resolution, dimension) -> np.ndarray:
     hw = int(sigma * nsig * resolution)
     w = 2 * hw + 1
     shape = tuple(w for _ in range(dimension))
-    d2 = d2fromcenter(shape, resolution)
+    d2 = distfromcenter(shape) ** 2
     filt = np.exp(-d2 / (sigma * sigma))  # convolution of Gaussian is Gaussian
     return filt / np.linalg.norm(filt)
 
@@ -100,6 +100,7 @@ def noise(
     d /= shape[0]
     filt = kernel(d)
     filt[d > eff_range] = 0
+    filt /= np.linalg.norm(filt)
 
     # determine shape of white noise to sample
     pad_shape = shape.copy()
@@ -141,11 +142,11 @@ if __name__ == "__main__":
         y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * np.exp(-x * x)
         return sign * y  # erf(-x) = -erf(x)
 
-    crg, crb, cgb = 0.9, 0.9, 0.9
+    crg, crb, cgb = 0.0, 0.99, 0.0
     rgb = noise(
         shape=(800, 1000),
-        kernel=lambda x: 0.1 - x,       #np.ones_like(x),
-        eff_range=0.1,
+        kernel=lambda x: np.ones_like(x),
+        eff_range=0.2,
         periodic=False,     # [False, False],
         channel_cov=np.array([
                         [1, crg, crb],
