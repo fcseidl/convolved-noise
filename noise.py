@@ -52,12 +52,13 @@ _ftol = 1e-4
 _eff_range_max = 1.
 
 
-def estimate_effective_range(kernel: np.ufunc) -> float:
-    """Return an estimate for the effective range of a kernel, or throw an exception."""
-    result = bisection(lambda x: kernel(x) - _ftol, 0, _eff_range_max)
+def estimate_effective_range(radial_func: np.ufunc) -> float:
+    """Return an estimate for the effective range of a radial function, or throw an exception."""
+    divisor = radial_func(0.)
+    result = bisection(lambda x: radial_func(x) / divisor - _ftol, 0, _eff_range_max) if divisor != 0 else None
     if result is None:
-        raise ValueError("Unable to infer effective range. This is only guaranteed for "
-                         + f"monotonically decreasing kernels satisfying k({_eff_range_max}) < {_ftol}.")
+        raise ValueError("Unable to infer effective range of radial function. This is only guaranteed for "
+                         + f"monotonically decreasing functions satisfying f({_eff_range_max}) < {_ftol}.")
     return result
 
 
@@ -73,36 +74,41 @@ def convolve(x, y):
 
 def noise(
         shape: float | tuple,
-        kernel: np.ufunc,
+        radial_func: np.ufunc,
         eff_range: float | None = None,
         channel_cov: float | np.ndarray = 1.,
         periodic: bool | tuple = False,
         seed: int = None
 ) -> np.ndarray:
     """
-    Sample a mean-zero Gaussian process over a box in n-dimensional space.
-    If N is the process, k is a kernel function, and * represents the
-    (discrete) convolution operator, then Cov(N(x), N(y)) is proportional
-    to (k * k)(||x - y||) for all sample locations x and y.
+    Sample a stationary, isotropic mean-zero Gaussian process over a box
+    in n-dimensional space. The user specifies a radial function f such
+    that if N is the process, k(x, y) = f(||x - y||), and * represents
+    the (discrete) convolution operator, then Cov(N(x), N(y)) is
+    proportional to (k * k)(x, y) for all sample locations x and y.
 
-    :param shape: Shape of grid in which to sample noise. The grid resolution
-                    is set so that the length along the first axis is 1. For
-                     instance, shape=np.ones(d) gives a unit hypercube in d
-                     dimensions.
-    :param kernel: Convolutional kernel used to define noise autocorrelation. Must be broadcastable.
-    :param eff_range: Effective range of kernel. Longer-range correlations are reduced or
-                        absent in the noise simulated. If not provided, the effective range
-                        inferred automatically assuming a monotonically decreasing kernel.
-    :param channel_cov: Covariance matrix of channels in the noise sample. Provide a
-                            positive scalar for single-channel noise. Otherwise, provide
-                            a symmetric positive definite matrix with a row for each
-                            channel. The channels appear along the last axis of the output.
+    :param shape: Shape of grid in which to sample noise. The grid
+                    resolution is set so that the length along the first
+                    axis is 1. For instance, shape=np.ones(d) gives a
+                    unit hypercube in d dimensions.
+    :param radial_func: Radial function used to define noise autocorrelation.
+                        Must be broadcastable.
+    :param eff_range: Effective range of radial function. Longer-range
+                        correlations are reduced or absent in the noise
+                        simulated. If not provided, the effective range
+                        is inferred automatically assuming a monotonically
+                        decreasing radial function.
+    :param channel_cov: Covariance matrix of channels in the noise sample. Provide
+                            a positive scalar for single-channel noise. Otherwise,
+                            provide a symmetric positive definite matrix with a row
+                            for each channel. The channels appear along the last
+                            axis of the output.
     :param periodic: Whether to wrap noise around each axis, e.g. False for
                         non-repeating noise, (True, False) for 2d-noise which
                         is periodic along the first axis.
     :param seed: Random seed for replicability.
-    :return: Array of shape (shape + channel_cov.shape[0]) containing a realization
-                of the Gaussian process.
+    :return: Array of shape (shape + channel_cov.shape[0]) containing a
+                realization of the Gaussian process.
     """
     if seed is not None:
         np.random.seed(seed)
@@ -112,12 +118,12 @@ def noise(
 
     # infer effective range if needed
     if eff_range is None:
-        eff_range = estimate_effective_range(kernel)
+        eff_range = estimate_effective_range(radial_func)
 
-    # construct kernel to convolve with
+    # construct filter to convolve with
     d = distfromcenter([2 * eff_range * shape[0] + 1 for _ in shape])
     d /= shape[0]
-    filt = kernel(d)
+    filt = radial_func(d)
     filt[d > eff_range] = 0
     filt /= np.linalg.norm(filt)
 
@@ -166,8 +172,9 @@ if __name__ == "__main__":
     crg, crb, cgb = 0.0, 0.0, 0.9
     rgb = noise(
         shape=(800, 1000),
-        kernel=lambda x: 0.2 - x,  # np.ones_like(x),eff_range=0.2,  # todo: make this optional
-        periodic=False,  # [False, False],
+        radial_func=lambda x: np.ones_like(x), #np.exp(-10 * x) * np.cos(10 * x),  #,eff_range=0.2,  # todo: make this optional
+        eff_range=0.25,
+        periodic=[True, False],
         channel_cov=np.array([
             [1, crg, crb],
             [crg, 1, cgb],
