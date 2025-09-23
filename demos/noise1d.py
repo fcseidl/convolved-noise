@@ -5,7 +5,7 @@ import numpy as np
 
 fig, axs = plt.subplots(2, 2)
 nx = 1000
-seed = 42
+seed = 2
 
 n00 = noise(nx, lambda x: np.ones_like(x), eff_range=0.25, seed=seed)
 axs[0, 0].plot(n00, c='black')
