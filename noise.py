@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.fft import rfftn, irfftn
 
-from typing import Callable
+from typing import Callable, Iterable
 
 
 def distfromcenter(shape):
@@ -73,11 +73,11 @@ def convolve(x, y):
 
 
 def noise(
-        shape: float | tuple,
+        shape: int | Iterable[int],
         radial_func: np.ufunc,
         eff_range: float | None = None,
         channel_cov: float | np.ndarray = 1.,
-        periodic: bool | tuple = False,
+        periodic: bool | Iterable[bool] = False,
         seed: int = None
 ) -> np.ndarray:
     """
@@ -138,7 +138,7 @@ def noise(
     for c in range(n_channels):
         white = np.random.randn(*pad_shape)
         smooth = convolve(white, filt)
-        result[..., c] = smooth[*(slice(0, sj) for sj in shape),]
+        result[..., c] = smooth[*(slice(0, sj) for sj in shape), ]
 
     # induce channel correlations
     cholesky_factor = np.linalg.cholesky(channel_cov)
@@ -169,11 +169,11 @@ if __name__ == "__main__":
         return sign * y  # erf(-x) = -erf(x)
 
 
-    crg, crb, cgb = 0.0, 0.0, 0.9
+    crg, crb, cgb = 0.9, 0.0, 0.0
     rgb = noise(
         shape=(800, 1000),
-        radial_func=lambda x: np.ones_like(x), #np.exp(-10 * x) * np.cos(10 * x),  #,eff_range=0.2,  # todo: make this optional
-        eff_range=0.25,
+        radial_func=lambda x: np.exp(-100 * x * x),
+        #eff_range=0.25,
         periodic=[True, False],
         channel_cov=np.array([
             [1, crg, crb],
