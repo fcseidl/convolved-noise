@@ -5,7 +5,7 @@ import numpy as np
 
 fig, axs = plt.subplots(2, 2)
 shape = (480, 640)
-seed = 2
+seed = 1
 
 n00 = noise(shape, lambda x: np.ones_like(x), eff_range=0.25, seed=seed)
 axs[0, 0].imshow(n00, cmap='gray')

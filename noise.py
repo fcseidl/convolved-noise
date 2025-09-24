@@ -146,46 +146,4 @@ def noise(
 
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-
-
-    # based on SO: https://stackoverflow.com/a/457805/14149906
-    def erf(x):
-        # save the sign of x
-        sign = np.sign(x)
-        x = np.abs(x)
-
-        # constants
-        a1 = 0.254829592
-        a2 = -0.284496736
-        a3 = 1.421413741
-        a4 = -1.453152027
-        a5 = 1.061405429
-        p = 0.3275911
-
-        # A&S formula 7.1.26
-        t = 1.0 / (1.0 + p * x)
-        y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * np.exp(-x * x)
-        return sign * y  # erf(-x) = -erf(x)
-
-
-    crg, crb, cgb = 0.9, 0.0, 0.0
-    rgb = noise(
-        shape=(800, 1000),
-        radial_func=lambda x: np.exp(-100 * x * x),
-        #eff_range=0.25,
-        periodic=[True, False],
-        channel_cov=np.array([
-            [1, crg, crb],
-            [crg, 1, cgb],
-            [crb, cgb, 1]
-        ])
-    )
-
-    rgb = 0.5 * (1 + erf(rgb))  # inverse cdf (approximated)
-
-    rgb = np.roll(rgb, (100, 100), axis=(0, 1))
-
-    plt.imshow(rgb)
-    plt.axis('off')
-    plt.show()
+    pass

@@ -25,7 +25,7 @@ def erf(x):
 
 fig, axs = plt.subplots(2, 2)
 shape = (480, 640)
-seed = 2
+seed = 1
 
 crg, crb, cgb = 0.0, 0.0, 0.0
 n00 = noise(shape,
