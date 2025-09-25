@@ -1,6 +1,6 @@
 import numpy as np
 
-from noise import noise
+from cnvlnoise import noise
 
 from time import time
 import parafields as pf

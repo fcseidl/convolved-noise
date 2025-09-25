@@ -1,4 +1,4 @@
-from noise import noise
+from cnvlnoise import noise
 import matplotlib.pyplot as plt
 import numpy as np
 
