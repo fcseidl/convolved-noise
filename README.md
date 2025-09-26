@@ -6,8 +6,8 @@ The ```convolved-noise``` package is available from PyPi, via
 ```
 pip install convolved-noise
 ```
-It is also defined fully by the ```noise.py``` file in this repository.
 
 ## Basic usage
-The main functionality of ```convolved-noise``` is provided by a single method, called ```noise```, which returns a numpy array containing the values 
-of a gaussian process on a regular grid.
+Once ```convolved-noise``` is installed, run ```from cnvlnoise import noise``` to access the core method providing the package's essential functionality. 
+Calling ```noise``` results in a numpy array containing the values of a gaussian process on a regular grid. The only argument needed is the shape of the 
+grid--for instance, ```noise((5, 5))``` will produce a 5x5 array of correlated random values.
