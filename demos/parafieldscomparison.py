@@ -1,6 +1,6 @@
 import numpy as np
 
-from cnvlnoise import noise
+from src.cnvlnoise import noise
 
 from time import time
 import parafields as pf
@@ -13,7 +13,7 @@ n = 1
 scale = 0.19
 
 a = pf.generate_field(cells=[nx, nx], extensions=(1., 1.), covariance="gaussian", corrLength=scale).evaluate()
-b = noise([nx, nx], lambda x: np.exp(-2 * (x / scale) ** 2))
+b = noise([nx, nx]) #, lambda x: np.exp(-2 * (x / scale) ** 2))
 
 fig, axs = plt.subplots(1, 2)
 axs[0].imshow(a, cmap='gray'); axs[0].set_title("parafields"); axs[0].axis('off')
