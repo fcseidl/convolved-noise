@@ -74,7 +74,7 @@ def convolve(x: np.ndarray, y: np.ndarray) -> np.ndarray:
 
 def noise(
         shape: int | Iterable[int],
-        radial_func: np.ufunc,
+        radial_func: np.ufunc = lambda x: np.exp(-50. * x * x),
         eff_range: float | None = None,
         channel_cov: float | np.ndarray = 1.,
         periodic: bool | Iterable[bool] = False,
@@ -92,7 +92,8 @@ def noise(
                     axis is 1. For instance, shape=np.ones(d) gives a
                     unit hypercube in d dimensions.
     :param radial_func: Radial function used to define noise autocorrelation.
-                        Must be broadcastable.
+                        Must be broadcastable. If not specified, a gaussian
+                        kernel is used.
     :param eff_range: Effective range of radial function. Longer-range
                         correlations are reduced or absent in the noise
                         simulated. If not provided, the effective range
@@ -107,8 +108,10 @@ def noise(
                         non-repeating noise, (True, False) for 2d-noise which
                         is periodic along the first axis.
     :param seed: Random seed for replicability.
-    :return: Array of shape (shape + channel_cov.shape[0]) containing a
-                realization of the Gaussian process.
+    :return: Array of specified shape with channels along the last axis. For instance,
+                shape == (1, 2, 3) and channel_cov is a scalar, then the result has
+                shape (1, 2, 3). If alternatively, channel_cov is a 4x4 matrix, then
+                the result has shape (1, 2, 3, 4).
     """
     if seed is not None:
         np.random.seed(seed)
@@ -140,7 +143,7 @@ def noise(
         smooth = convolve(white, filt)
         result[..., c] = smooth[*(slice(0, sj) for sj in shape), ]
 
-    # induce channel correlations
+    # induce channel joint distribution
     cholesky_factor = np.linalg.cholesky(channel_cov)
     result = result @ cholesky_factor.T
     if n_channels == 1:
