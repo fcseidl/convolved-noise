@@ -4,4 +4,4 @@ __pycache__/
 dist/
 .idea/
 venv/
-.ipynb_checkpoints/
+*.ipynb*
