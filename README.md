@@ -63,7 +63,7 @@ plt.show()
 
 
 ### Noise channels
-A unique feature of ```noise``` is its support for multiple correlated channels. If a symmetric positive definite covariance matrix is passed for the optional ```channel_cov``` parameter, then instead of a standard normal variable at each grid point, the resulting sample will have a multivariate gaussian variable with mean zero and the resulting covariance. For instance, the color image below consists of a red, green, and blue channel which are each closely correlated.
+A unique feature of ```convolved-noise``` is its support for multiple correlated channels. If a symmetric positive definite covariance matrix is passed for the optional ```channel_cov``` parameter, then instead of a standard normal variable at each grid point, the resulting sample will have a multivariate gaussian variable with mean zero and the resulting covariance. For instance, the color image below consists of a red, green, and blue channel which are each closely correlated.
 
 
 ```python
