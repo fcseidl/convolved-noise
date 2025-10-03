@@ -1,5 +1,5 @@
 # A lightweight package for generating random fields
-This is the source repo for ```convolved-noise```, a small, efficient library for creating spatially correlated gaussian fields by convolving white noise with a smoothing kernel.
+This is the source repo for ```convolved-noise```, a small, efficient library for creating spatially correlated gaussian fields by convolving white noise with a smoothing kernel. The resulting noise is useful for creating smooth random features in graphics. For example, ```convolved-noise``` is a dependency of the [fractalinator](https://fcseidl.github.io/fractalinator/) online mathematical art demo.
 
 ## Installation
 The easiest way to access ```convolved-noise``` is though PyPI:
